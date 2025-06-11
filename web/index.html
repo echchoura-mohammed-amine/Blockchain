@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GigachadCoin Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f4f5fa;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: linear-gradient(90deg, #1e1e2f, #2b2b3d);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    main {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 24px;
+      padding: 30px;
+      max-width: 1400px;
+      margin: auto;
+    }
+    section {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+      transition: all 0.3s ease;
+    }
+    section:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    }
+    h2 {
+      margin-top: 0;
+      font-size: 20px;
+      color: #2c3e50;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    label {
+      display: block;
+      margin-top: 16px;
+      font-weight: 600;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      box-sizing: border-box;
+      font-size: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      background-color: #ffc107;
+      color: #1e1e2f;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background-color 0.2s ease;
+    }
+    button:hover {
+      background-color: #e0a800;
+    }
+    pre {
+      background-color: #f9f9f9;
+      padding: 12px;
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 13px;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+    }
+    #blocks h3 {
+        margin-top: 0;
+        color: #2c3e50;
+    }
+    #blocks p {
+        margin: 4px 0;
+        font-size: 14px;
+    }
+
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🦾 GigachadCoin</h1>
+  </header>
+
+  <main>
+    <section>
+      <h2>👛 Wallet</h2>
+      <label for="walletSelect">Select Wallet:</label>
+      <select id="walletSelect" onchange="updateSenderField()">
+        <option value="Mehdi">Mehdi</option>
+        <option value="Solo">Solo</option>
+        <option value="Sh4d0w">Sh4d0w</option>
+      </select>
+      <p id="balanceDisplay">Balance: --</p>
+    </section>
+
+    <section>
+      <h2>➕ Create Transaction</h2>
+      <form onsubmit="submitTransaction(event)">
+        <input type="hidden" id="sender" />
+        <label>Recipient:
+          <input type="text" id="recipient" required />
+        </label>
+        <label>Amount:
+          <input type="number" id="amount" min="1" required />
+        </label>
+        <label>Fee:
+          <input type="number" id="fee" min="0" value="1" required />
+        </label>
+        <button type="submit">Submit Transaction</button>
+      </form>
+      <p id="txStatus"></p>
+    </section>
+
+    <section>
+      <h2>📥 Mempool</h2>
+      <pre id="mempool"></pre>
+    </section>
+
+    <section>
+      <h2>📦 Recent Blocks</h2>
+      <button onclick="mine()">⛏️ Mine Block</button>
+      <pre id="blocks"></pre>
+    </section>
+  </main>
+
+  <script>
+    async function fetchJSON(url) {
+      const res = await fetch(url);
+      return res.json();
+    }
+
+    async function updateSenderField() {
+      const sender = document.getElementById("walletSelect").value;
+      document.getElementById("sender").value = sender;
+      const balances = await fetchJSON("/wallets");
+      document.getElementById("balanceDisplay").innerText = `Balance: ${balances[sender] || 0} GGC`;
+    }
+
+    async function submitTransaction(e) {
+      e.preventDefault();
+      const tx = {
+        sender: document.getElementById("sender").value,
+        recipient: document.getElementById("recipient").value,
+        amount: parseInt(document.getElementById("amount").value),
+        fee: parseInt(document.getElementById("fee").value),
+        signature: "FAKE_SIGNATURE" // Replace with real signing logic if needed
+      };
+      const res = await fetch("/transactions/new", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tx)
+      });
+      const data = await res.json();
+      document.getElementById("txStatus").innerText = JSON.stringify(data, null, 2);
+      loadMempool();
+    }
+
+    async function loadMempool() {
+      const mempool = await fetchJSON("/mempool");
+      document.getElementById("mempool").textContent = JSON.stringify(mempool, null, 2);
+    }
+
+    async function loadBlocks() {
+      const blocks = await fetchJSON("/blocks");
+      const blockContainer = document.getElementById("blocks");
+blockContainer.innerHTML = blocks.slice(-5).map(block => {
+  const date = new Date(block.timestamp).toLocaleString();
+
+  const txs = block.transactions.map(tx => `
+    <div style="padding: 6px 12px; border-left: 3px solid #ffc107; margin-bottom: 8px;">
+      <strong>From:</strong> ${tx.sender}<br>
+      <strong>To:</strong> ${tx.recipient}<br>
+      <strong>Amount:</strong> ${tx.amount} GGC<br>
+      <strong>Fee:</strong> ${tx.fee}
+    </div>
+  `).join('');
+
+  return `
+    <div style="margin-bottom: 20px; padding: 16px; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
+      <h3>📦 Block #${block.height}</h3>
+      <p><strong>Hash:</strong> ${block.hash}</p>
+      <p><strong>Previous Hash:</strong> ${block.previousHash}</p>
+      <p><strong>Timestamp:</strong> ${date}</p>
+      <p><strong>Difficulty:</strong> ${block.difficulty} | <strong>Nonce:</strong> ${block.nonce}</p>
+      <p><strong>Miner:</strong> ${block.miner} | <strong>Reward:</strong> ${block.blockReward} GGC</p>
+      <div><strong>Transactions:</strong><br>${txs || '<em>No transactions</em>'}</div>
+    </div>
+  `;
+}).join('');
+
+    }
+
+    async function mine() {
+    const miner = document.getElementById("walletSelect").value;
+    await fetch("/mine", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ miner })
+    });
+    loadBlocks();
+    loadMempool();
+    updateSenderField();
+    }
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+   "height": 2,
+   "hash": "00000000376be6016a507b2442fd51c95a83d4cfde3778b64f43db1a97ab5736",
+   "previousHash": "000000044b97d90aec236d4184e93800560a8f9801d8edf93ee5eece0344fb19",
+   "timestamp": 1749220062605,
+   "difficulty": 7,
+   "blockReward": 50,
+   "nonce": 195012352,
+   "blockchain": null,
+   "transactions": [
+      {
+         "sender": "COINBASE",
+         "recipient": "cherkaoui",
+         "amount": 50,
+         "fee": 0,
+         "signature": "COINBASE"
+      },
+      {
+         "sender": "Mehdi",
+         "recipient": "hamada",
+         "amount": 10,
+         "fee": 1,
+         "signature": "fakeSig"
+      }
+   ],
+   "miner": "mehdiMiner",
+   "previousBlock": null
+}

@@ -1,0 +1,28 @@
+{
+   "height": 1,
+   "hash": "000000044b97d90aec236d4184e93800560a8f9801d8edf93ee5eece0344fb19",
+   "previousHash": "0",
+   "timestamp": 1749163322602,
+   "difficulty": 7,
+   "blockReward": 50,
+   "nonce": 304759333,
+   "blockchain": null,
+   "transactions": [
+      {
+         "sender": "COINBASE",
+         "recipient": "Solo",
+         "amount": 50,
+         "fee": 0,
+         "signature": "COINBASE"
+      },
+      {
+         "sender": "Mehdi",
+         "recipient": "Mr tmimi",
+         "amount": 50,
+         "fee": 1,
+         "signature": "MINEEE"
+      }
+   ],
+   "miner": "mehdiMiner",
+   "previousBlock": null
+}

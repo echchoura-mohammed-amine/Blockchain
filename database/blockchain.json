@@ -1,0 +1,10 @@
+[
+   {
+      "name": "Mehdi",
+      "difficulty": 7,
+      "miningInterval": 579,
+      "blockReward": 50,
+      "denom": "GigachadCoin",
+      "head": null
+   }
+]
