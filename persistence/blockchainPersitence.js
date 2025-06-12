@@ -1,39 +1,37 @@
-const fs = require("fs")
-const { resolve } = require("path")
-const pathDb = "database/blockchain.json"
-const saveBlockchain = async (blockchain) => {
-    const { name, difficulty, miningInterval,
-        blockReward, denom, head } = blockchain
+// persistence/blockchainPersitence.js
+//
+// Stores the global chain parameters (difficulty, reward, …).
+// Also exposes getLastBlock() so other modules don’t have to reach
+// into blockPersistence directly.
 
-    if (head != null) {
-        head = head.hash
-    }
-    try {
-        await fs.promises.writeFile(pathDb, JSON.stringify(
-            {
-                name, difficulty, miningInterval, blockReward, denom, head
-            }, null, 3
-        ))
-        return true;
-    }
-    catch (e) {
-        console.error(e)
-        throw e
-    }
+const fs   = require('fs');
+const path = require('path');
+const {
+  getAllBlocks            // from persistence/blockPersistence.js
+} = require('./blockPersistence.js');
+
+const file = path.join(__dirname, '..', 'database', 'blockchain.json');
+
+// ────────────────────────────────────────────────────────────────────────────
+const defaultMeta = { difficulty: 7, blockReward: 50 };
+
+function loadBlockchain() {
+  if (!fs.existsSync(file)) return { ...defaultMeta };
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
-const loadBlockchain = () => {
-    return new Promise((resolve, reject) => {
-        fs.promises.readFile(pathDb)
-            .then(data => {
-                data = JSON.parse(data)
-                resolve(data)
-            })
-            .catch(e => {
-                console.error(e)
-                reject(null)
-            })
-    })
+
+function saveBlockchain(meta) {
+  fs.writeFileSync(file, JSON.stringify(meta, null, 2));
 }
+
+// Convenience: fetch the tail block if it exists
+async function getLastBlock() {
+  const all = await getAllBlocks();
+  return all.length ? all[all.length - 1] : null;
+}
+
 module.exports = {
-    loadBlockchain, saveBlockchain
-}
+  loadBlockchain,
+  saveBlockchain,
+  getLastBlock
+};

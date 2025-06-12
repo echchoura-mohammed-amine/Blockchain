@@ -1,28 +1,26 @@
 {
    "height": 2,
-   "hash": "00000000376be6016a507b2442fd51c95a83d4cfde3778b64f43db1a97ab5736",
+   "hash": "027c34978cfb52cffd786dff9275ed69d1aef8acc272fd145f2f4162d3a0cf5c",
    "previousHash": "000000044b97d90aec236d4184e93800560a8f9801d8edf93ee5eece0344fb19",
-   "timestamp": 1749220062605,
-   "difficulty": 7,
-   "blockReward": 50,
-   "nonce": 195012352,
-   "blockchain": null,
+   "timestamp": 1749691990374,
+   "difficulty": 1,
+   "reward": 50,
+   "nonce": 43,
+   "miner": "Amine",
    "transactions": [
       {
          "sender": "COINBASE",
-         "recipient": "cherkaoui",
+         "recipient": "Amine",
          "amount": 50,
          "fee": 0,
          "signature": "COINBASE"
       },
       {
-         "sender": "Mehdi",
-         "recipient": "hamada",
-         "amount": 10,
+         "sender": "Amine",
+         "recipient": "Mehdi",
+         "amount": 50,
          "fee": 1,
-         "signature": "fakeSig"
+         "signature": "3a09db54cda7f7dfc4704d47b78479ade03727af2578bd1933c4797d3e1b3779fc150bd199da218dee1c4bae04cf36ef9075fba49c8a89bec5e5b951e1d654d87dce066d1521acf13a0b46005525aa4cb7615de467c299326c793c8cd16d0e4888b08603f2f984a5411cfe41fd9cfa373a24652d2dd89efcd0ce2c46ce11d02bdb7f56eb68e9bc19177f6627df393d06af002729f10e2b90dbc99b04ebf88a0fba330c95388b758ba12ad1da54beaf4c9d6f5a41ef340d56d7de661d7952be88f94d9d40aadaa09c4bd7ac2c909501d9777a523e912c67d7ef6bb14ed48d2607ee65a9f25b4bb8a2e16747dfc45974c169f06f436cd060da696da7659feb9009"
       }
-   ],
-   "miner": "mehdiMiner",
-   "previousBlock": null
+   ]
 }

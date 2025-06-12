@@ -1,173 +1,108 @@
+// server.js
+//
+// Express back-end serving the UI, handling signed TXs, and mining blocks.
+
 const express = require('express');
 const bodyParser = require('body-parser');
-const crypto = require('crypto'); 
-const fs = require('fs');
-const app = express();
+const fs   = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const app  = express();
 const PORT = 3000;
 
-// === Load persistence modules ===
+// ─── Persistence modules ───────────────────────────────────────────────────
 const blockchainMetadata = require('./persistence/blockchainPersitence.js');
-const mempoolPersistence = require('./persistence/mempoolPersistence');
-const walletPersistence = require('./persistence/walletPersistence');
-const blockPersistence = require('./persistence/blockpersistence');
-const Block = require('./models/block');
+const mempoolPersistence = require('./persistence/mempoolPersistence.js');
+const {
+  getAllBlocks,
+  saveBlock
+} = require('./persistence/blockPersistence.js');
+const walletPersistence = require('./persistence/walletPersistence.js');
+const Block = require('./models/block.js');
 
-// === Middleware ===
+// ─── Static front-end ───────────────────────────────────────────────────────
+const webPath = path.join(__dirname, 'web');
+app.use(express.static(webPath));
+app.get('/', (_req, res) => res.sendFile(path.join(webPath, 'index.html')));
+
+// ─── Middleware ────────────────────────────────────────────────────────────
 app.use(bodyParser.json());
-app.use(express.static('web'));
 
-function calculateHash(height, previousHash, timestamp, transactions, difficulty, blockReward, nonce, miner) {
-  const data = `${height}${previousHash}${timestamp}${JSON.stringify(transactions)}${difficulty}${blockReward}${nonce}${miner}`;
-  return crypto.createHash('sha256').update(data).digest('hex');
-}
-
-function mineBlock(height, previousHash, transactions, difficulty, blockReward, miner) {
-  let nonce = 0;
-  let timestamp;
-  let hash;
-  const target = '0'.repeat(difficulty);
-
-  do {
-    timestamp = Date.now();
-    hash = calculateHash(height, previousHash, timestamp, transactions, difficulty, blockReward, nonce, miner);
-    nonce++;
-  } while (!hash.startsWith(target));
-
-  return { hash, nonce: nonce - 1, timestamp };
-}
-
-
-// === Routes ===
-
-// Get full blockchain (blocks list)
-app.get('/blocks', async (req, res) => {
-  try {
-    const blocks = await blockPersistence.getAllBlocks();
-    res.json(blocks);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to load blocks' });
-  }
+// ─── Demo-only: expose private PEM for client-side signing ─────────────────
+app.get('/keys/:wallet/private', (req, res) => {
+  const wallet = req.params.wallet.toLowerCase();
+  const file = path.join(__dirname, 'keys', `${wallet}_private.pem`);
+  if (!fs.existsSync(file)) return res.sendStatus(404);
+  res.type('application/x-pem-file').send(fs.readFileSync(file, 'utf8'));
 });
 
-// Get current mempool
-app.get('/mempool', async (req, res) => {
-  try {
-    const mempool = await mempoolPersistence.getAllTransactionsMempool();
-    res.json(mempool);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to load mempool' });
-  }
+// ─── Chain state endpoints ─────────────────────────────────────────────────
+app.get('/blocks', async (_req, res) => {
+  res.json(await getAllBlocks());
 });
 
-// Submit a new transaction
+app.get('/wallets', async (_req, res) => {
+  res.json(await walletPersistence.computeWalletBalancesFromBlocks());
+});
+
+app.get('/mempool', async (_req, res) => {
+  res.json(await mempoolPersistence.getAllTransactionsMempool());
+});
+
+// ─── Submit signed transaction ─────────────────────────────────────────────
 app.post('/transactions/new', async (req, res) => {
-  const tx = req.body;
-  const { sender, recipient, amount, fee, signature } = tx;
+  const { sender, recipient, amount, fee, signature } = req.body;
+  if (!sender || !recipient || amount == null || !signature)
+    return res.status(400).json({ error: 'Missing fields' });
 
-  if (!sender || !recipient || !amount || !signature) {
-    return res.status(400).json({ error: 'Missing transaction fields' });
-  }
+  // verify sig
+  const unsigned = { sender, recipient, amount, fee };
+  const hash = crypto.createHash('sha256').update(JSON.stringify(unsigned)).digest();
+  const pubKeyPath = path.join(__dirname, 'keys', `${sender.toLowerCase()}.pem`);
+  if (!fs.existsSync(pubKeyPath))
+    return res.status(400).json({ error: 'Sender public key not found' });
 
-  // Begin signature verification
-  try {
-    // Rebuild original transaction (without signature)
-    const unsignedTx = { sender, recipient, amount, fee };
-    const txData = JSON.stringify(unsignedTx);
-    const hash = crypto.createHash("sha256").update(txData).digest();
+  const valid = crypto
+    .createVerify('RSA-SHA256')
+    .update(hash)
+    .verify(fs.readFileSync(pubKeyPath, 'utf8'), signature, 'hex');
 
-    // Load sender's public key
-    const publicKeyPath = `keys/${sender}.pem`;
-    if (!fs.existsSync(publicKeyPath)) {
-      return res.status(400).json({ error: 'Sender public key not found' });
-    }
+  if (!valid) return res.status(400).json({ error: 'Invalid digital signature' });
 
-    const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
-    const verify = crypto.createVerify("RSA-SHA256");
-    verify.update(hash);
-    const isValid = verify.verify(publicKey, signature, "hex");
-
-    if (!isValid) {
-      return res.status(400).json({ error: 'Invalid digital signature' });
-    }
-
-    // Passed verification — add to mempool
-    await mempoolPersistence.addTransactionMempool(tx);
-    res.json({ message: 'Transaction added to mempool', transaction: tx });
-
-  } catch (err) {
-    console.error("Signature verification failed:", err);
-    res.status(500).json({ error: 'Error verifying transaction signature' });
-  }
+  await mempoolPersistence.addTransactionMempool(req.body);
+  res.json({ message: 'Transaction added to mempool', transaction: req.body });
 });
 
-
-// Mine a new block
+// ─── Mine block (POST /mine) ───────────────────────────────────────────────
 app.post('/mine', async (req, res) => {
   try {
     const mempool = await mempoolPersistence.getAllTransactionsMempool();
-
-    if (mempool.length === 0) {
+    if (mempool.length === 0)
       return res.status(400).json({ message: 'No transactions to mine' });
-    }
 
-    const blocks = await blockPersistence.getAllBlocks();
-    const lastBlock = blocks[blocks.length - 1];
-    const newHeight = lastBlock ? lastBlock.height + 1 : 1;
+    const lastBlock = await blockchainMetadata.getLastBlock();
+    const minerName = req.body.miner || 'Anonymous';
 
-    const miner = req.body.miner || "UnknownMiner";
-
-    const { hash, nonce, timestamp } = mineBlock(
-      newHeight,
-      lastBlock ? lastBlock.hash : "0",
+    const meta = blockchainMetadata.loadBlockchain();   // { difficulty, blockReward }
+    const newBlock = Block.mineNewBlock(
+      lastBlock,
       mempool,
-      7,
-      50,
-      miner
+      meta.difficulty,
+      meta.blockReward,
+      minerName
     );
 
-    const newBlock = new Block(
-      newHeight,
-      hash,
-      lastBlock ? lastBlock.hash : "0",
-      timestamp,
-      7,
-      50,
-      nonce,
-      miner
-    );
-
-    const coinbaseTx = {
-      sender: "COINBASE",
-      recipient: miner,
-      amount: 50,
-      fee: 0,
-      signature: "COINBASE"
-    };
-
-    newBlock.transactions = [coinbaseTx, ...mempool];
-
-    await blockPersistence.saveBlock(newBlock);
-    await mempoolPersistence.saveMempool([]);
+    await saveBlock(newBlock);
+    await mempoolPersistence.flushMempool();
 
     res.json({ message: 'Block mined', block: newBlock });
   } catch (err) {
-    console.error("Mining error:", err);
+    console.error('Mining error:', err);
     res.status(500).json({ error: 'Failed to mine block' });
   }
 });
 
-
-// Wallet balances
-app.get('/wallets', async (req, res) => {
-  try {
-    const balances = await walletPersistence.computeWalletBalancesFromBlocks();
-    res.json(balances);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to compute wallet balances' });
-  }
-});
-
-// Start server
-app.listen(PORT, () => {
-  console.log(` Server running at http://localhost:${PORT}`);
-});
+// ─── Start server ──────────────────────────────────────────────────────────
+app.listen(PORT, () =>
+  console.log(`Server running at http://localhost:${PORT}`)
+);

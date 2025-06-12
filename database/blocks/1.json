@@ -10,14 +10,14 @@
    "transactions": [
       {
          "sender": "COINBASE",
-         "recipient": "Solo",
+         "recipient": "Amine",
          "amount": 50,
          "fee": 0,
          "signature": "COINBASE"
       },
       {
          "sender": "Mehdi",
-         "recipient": "Mr tmimi",
+         "recipient": "Amine",
          "amount": 50,
          "fee": 1,
          "signature": "MINEEE"

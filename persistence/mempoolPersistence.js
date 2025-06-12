@@ -1,56 +1,49 @@
-// addTransactionMempool
-// removeTransactionMempool
-// getAllTransactionsMempool
-// saveMempool
-const pathDb = "database/mempool.json"
-const fs = require("fs")
-const getAllTransactionsMempool = async () => {
-    try {
-        let transactions = JSON.parse(await fs.promises.readFile(pathDb))
-        return transactions;
-    }
-    catch (e) {
-        throw e
-    }
-}
-const saveMempool = async (mempool) => {
-    try {
-        await fs.promises.writeFile(pathDb, JSON.stringify(mempool, null, 3))
-    } catch (error) {
-        throw error
-    }
+// persistence/mempoolPersistence.js
+//
+// Handles the transaction mempool (simple JSON file).
+
+const fs   = require('fs');
+const path = require('path');
+
+const file = path.join(__dirname, '..', 'database', 'mempool.json');
+
+// helper ────────────────────────────────────────────────────────────────────
+function loadMempool() {
+  if (!fs.existsSync(file)) return [];
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-const addTransactionMempool = async (transaction) => {
-    try {
-        const mempool = await getAllTransactionsMempool()
-        mempool.push(transaction)
-        await saveMempool(mempool)
-    }
-    catch (error) {
-        throw error
-    }
+function saveMempool(arr) {
+  fs.writeFileSync(file, JSON.stringify(arr, null, 2));
 }
 
-/*
-const user = {name:"mehdi",age:32}
-undefined
-const hello = ({name})=>console.log(name)
-undefined
-hello(user)
-VM1046:1 mehdi
- */
-const removeTransactionMempool = async ({ signature }) => {
-    try {
-        let mempool = await getAllTransactionsMempool()
-        mempool = mempool.filter(tx => tx.signature != signature)
-        await saveMempool(mempool)
-    }
-    catch (error) {
-        throw error
-    }
+// API ───────────────────────────────────────────────────────────────────────
+async function getAllTransactionsMempool() {
+  return loadMempool();
 }
+
+async function addTransactionMempool(tx) {
+  const mempool = loadMempool();
+  mempool.push(tx);
+  saveMempool(mempool);
+}
+
+// Remove a single tx by signature (legacy flow)
+async function clearMempool({ signature }) {
+  const mempool = loadMempool().filter(t => t.signature !== signature);
+  saveMempool(mempool);
+}
+
+// Wipe everything (used after mining)
+async function flushMempool() {
+  saveMempool([]);
+}
+
 module.exports = {
-    addTransactionMempool, getAllTransactionsMempool,
-    removeTransactionMempool, saveMempool
-}
+  getAllTransactionsMempool,
+  addTransactionMempool,
+  loadMempool,
+  saveMempool,
+  clearMempool,
+  flushMempool
+};
