@@ -31,7 +31,7 @@ class Block {
   static mineNewBlock(
     prevBlock,
     transactions,
-    difficulty = 1,
+    difficulty = 7,
     reward     = 50,
     miner      = 'Anonymous'
   ) {
